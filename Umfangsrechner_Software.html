@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Umfangsrechner</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f5f7fb;
+      color: #1f2937;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+    .card {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    h1, h2 { margin-top: 0; }
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .primary { background: #111827; color: white; }
+    .secondary { background: #e5e7eb; color: #111827; }
+    .danger { background: #fee2e2; color: #991b1b; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    thead {
+      background: #eef2f7;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid #e5e7eb;
+      vertical-align: top;
+      text-align: left;
+      font-size: 14px;
+    }
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    .sum {
+      font-size: 34px;
+      font-weight: bold;
+      margin-top: 8px;
+    }
+    .small { color: #6b7280; font-size: 13px; }
+    .row-total { font-weight: bold; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+      table { display: block; overflow-x: auto; }
+      th, td { min-width: 120px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>Umfangsrechner für Fenster und Türen</h1>
+      <div class="small">
+        Gib pro Position nur Breite (x), Höhe (y) und Menge ein. 
+        Es wird automatisch gerechnet: x + x + y + y, danach × Menge.
+      </div>
+      <div class="actions">
+        <button class="primary" onclick="addRow()">Neue Position</button>
+        <button class="secondary" onclick="fillExample()">Beispieldaten laden</button>
+        <button class="secondary" onclick="resetRows()">Alles zurücksetzen</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <table id="calcTable">
+        <thead>
+          <tr>
+            <th>Pos.</th>
+            <th>Breite x (m)</th>
+            <th>Höhe y (m)</th>
+            <th>Menge</th>
+            <th>Rechenweg</th>
+            <th>Gesamt (m)</th>
+            <th>Aktion</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Gesamtsumme</h2>
+        <div class="small">Summe aller Positionen inklusive Mengen</div>
+        <div class="sum" id="grandTotal">0,00 m</div>
+      </div>
+
+      <div class="card">
+        <h2>So nutzt du die Software</h2>
+        <div class="small">
+          1. Breite und Höhe in Metern eingeben, z. B. 1,99 und 1,28.<br>
+          2. Menge eintragen, z. B. 2.<br>
+          3. Der Rechenweg und die Gesamtsumme werden sofort angezeigt.<br>
+          4. Du kannst das Programm offline benutzen, einfach per Doppelklick öffnen.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let nextId = 18;
+    let rows = [];
+
+    function createRowData(id) {
+      return { id, pos: String(id), x: '', y: '', menge: '1' };
+    }
+
+    function initRows() {
+      rows = [];
+      for (let i = 1; i <= 17; i++) rows.push(createRowData(i));
+      render();
+    }
+
+    function parseNum(v) {
+      if (typeof v !== 'string') return NaN;
+      return Number(v.replace(',', '.').trim());
+    }
+
+    function fmt(v) {
+      return v.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function calc(row) {
+      const x = parseNum(row.x);
+      const y = parseNum(row.y);
+      const m = parseNum(row.menge);
+      const ok = !Number.isNaN(x) && !Number.isNaN(y) && !Number.isNaN(m);
+      if (!ok) return { ok: false, total: 0, text: 'Werte eingeben' };
+      const einzel = x + x + y + y;
+      const total = einzel * m;
+      let text = `${fmt(x)} + ${fmt(x)} + ${fmt(y)} + ${fmt(y)} = ${fmt(einzel)} m`;
+      if (m !== 1) text += ` × ${fmt(m)} = ${fmt(total)} m`;
+      return { ok: true, einzel, total, text };
+    }
+
+    function render() {
+      const tbody = document.getElementById('tbody');
+      tbody.innerHTML = '';
+      let grand = 0;
+
+      rows.forEach((row, idx) => {
+        const c = calc(row);
+        grand += c.total || 0;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><input value="${escapeHtml(row.pos)}" oninput="updateField(${idx}, 'pos', this.value)"></td>
+          <td><input value="${escapeHtml(row.x)}" placeholder="z. B. 1,99" oninput="updateField(${idx}, 'x', this.value)"></td>
+          <td><input value="${escapeHtml(row.y)}" placeholder="z. B. 1,28" oninput="updateField(${idx}, 'y', this.value)"></td>
+          <td><input value="${escapeHtml(row.menge)}" placeholder="1" oninput="updateField(${idx}, 'menge', this.value)"></td>
+          <td>${c.ok ? c.text : '<span class="small">Werte eingeben</span>'}</td>
+          <td class="row-total">${c.ok ? fmt(c.total) + ' m' : '—'}</td>
+          <td><button class="danger" onclick="removeRow(${idx})">Löschen</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('grandTotal').textContent = fmt(grand) + ' m';
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;');
+    }
+
+    function updateField(index, field, value) {
+      rows[index][field] = value;
+      render();
+    }
+
+    function addRow() {
+      rows.push(createRowData(nextId++));
+      render();
+    }
+
+    function removeRow(index) {
+      if (rows.length === 1) return;
+      rows.splice(index, 1);
+      render();
+    }
+
+    function resetRows() {
+      nextId = 18;
+      initRows();
+    }
+
+    function fillExample() {
+      rows[0].x = '1,99';
+      rows[0].y = '1,28';
+      rows[0].menge = '1';
+
+      rows[1].x = '1,57';
+      rows[1].y = '1,47';
+      rows[1].menge = '1';
+
+      rows[6].x = '1,63';
+      rows[6].y = '1,33';
+      rows[6].menge = '2';
+      render();
+    }
+
+    initRows();
+  </script>
+</body>
+</html>
